@@ -10,6 +10,31 @@
   const safe = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const emailRedirect = () => location.origin + location.pathname;
 
+  async function publishProgress(userId, snapshot, version = sessionVersion) {
+    const progress = {
+      workouts: Array.isArray(snapshot.workouts) ? snapshot.workouts : [],
+      measures: Array.isArray(snapshot.measures) ? snapshot.measures : []
+    };
+    const { error: writeError } = await client.from("shared_progress").upsert({
+      user_id: userId, progress, updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (writeError) {
+      console.error("MuscleLog shared progress sync failed:", writeError.message);
+      window.ML?.setSharedProgress?.([], "Не удалось загрузить общий прогресс. Проверьте настройку Supabase.");
+      return;
+    }
+    const { data, error } = await client.from("shared_progress")
+      .select("user_id,progress,updated_at").order("updated_at", { ascending: false });
+    if (error) {
+      console.error("MuscleLog shared progress load failed:", error.message);
+      window.ML?.setSharedProgress?.([], "Не удалось загрузить общий прогресс. Проверьте настройку Supabase.");
+      return;
+    }
+    if (version === sessionVersion && currentUser?.id === userId) {
+      window.ML?.setSharedProgress?.(data || []);
+    }
+  }
+
   async function handleSession(session) {
     const version = ++sessionVersion;
     if (!session?.user) {
@@ -41,6 +66,8 @@
       !("height" in savedData.profile) || !("sex" in savedData.profile) ||
       !savedData.goals || !("kcal" in savedData.goals) || !Array.isArray(savedData.plan);
     if (needsDefaults) save(window.ML.getData());
+    await publishProgress(user.id, window.ML.getData(), version);
+    if (version !== sessionVersion) return;
     showApp(true);
     const adminTab = el("adminTab");
     if (adminTab) adminTab.classList.toggle("adminOnly", profile.role !== "admin");
@@ -156,7 +183,9 @@
         if (error) {
           console.error("MuscleLog cloud save failed:", error.message);
           window.ML?.notify?.("Не удалось сохранить данные. Проверьте соединение.");
+          return;
         }
+        await publishProgress(userId, snapshot, sessionVersion);
       }).catch(error => {
         console.error("MuscleLog cloud save failed:", error.message);
         window.ML?.notify?.("Не удалось сохранить данные. Проверьте соединение.");

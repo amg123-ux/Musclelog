@@ -88,3 +88,58 @@ with check (
 
 -- After creating your first account in Supabase Auth, promote it to administrator:
 -- update public.profiles set role = 'admin' where email = 'YOUR_EMAIL';
+
+
+-- Shared read-only progress summary; private profile, goals, foods, and settings stay in user_data.
+create table if not exists public.shared_progress (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  progress jsonb not null default '{"workouts":[],"measures":[]}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.shared_progress enable row level security;
+
+create or replace function public.is_active_profile(target_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $active$
+  select exists (
+    select 1 from public.profiles
+    where id = target_id and is_active = true
+  );
+$active$;
+
+revoke all on function public.is_active_profile(uuid) from public;
+grant execute on function public.is_active_profile(uuid) to authenticated;
+grant select, insert, update on public.shared_progress to authenticated;
+
+drop policy if exists "Read active users shared progress" on public.shared_progress;
+create policy "Read active users shared progress" on public.shared_progress
+for select to authenticated
+using (
+  (select public.is_active_profile((select auth.uid())))
+  and (select public.is_active_profile(user_id))
+);
+
+drop policy if exists "Insert own shared progress" on public.shared_progress;
+create policy "Insert own shared progress" on public.shared_progress
+for insert to authenticated
+with check (
+  user_id = (select auth.uid())
+  and (select public.is_active_profile((select auth.uid())))
+);
+
+drop policy if exists "Update own shared progress" on public.shared_progress;
+create policy "Update own shared progress" on public.shared_progress
+for update to authenticated
+using (
+  user_id = (select auth.uid())
+  and (select public.is_active_profile((select auth.uid())))
+)
+with check (
+  user_id = (select auth.uid())
+  and (select public.is_active_profile((select auth.uid())))
+);
