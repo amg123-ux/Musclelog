@@ -2,7 +2,7 @@
   const SUPABASE_URL = "https://lgnohmcyizwkyzwtmuhc.supabase.co";
   const SUPABASE_KEY = "sb_publishable_fDWYHagDC-3BTM4Nay5V5A_OpIPbN6s";
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  let currentUser = null, currentProfile = null, saveTimer = null, started = false;
+  let currentUser = null, currentProfile = null, saveTimer = null, started = false, sessionVersion = 0, saveQueue = Promise.resolve();
 
   const el = id => document.getElementById(id);
   const showError = msg => { if (el("authError")) el("authError").textContent = msg || ""; };
@@ -10,39 +10,32 @@
   const safe = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const emailRedirect = () => location.origin + location.pathname;
 
-  async function loadUserData(user, profile) {
-    const { data, error } = await client.from("user_data").select("data").eq("user_id", user.id).maybeSingle();
-    if (error) throw error;
-    let value = data?.data;
-    if ((!value || !Object.keys(value).length) && profile.role === "admin") {
-      try {
-        const legacy = JSON.parse(localStorage.getItem("musclelog") || "null");
-        if (legacy && (legacy.foods?.length || legacy.workouts?.length || legacy.measures?.length)) {
-          value = legacy;
-          await client.from("user_data").upsert({ user_id: user.id, data: value, updated_at: new Date().toISOString() });
-        }
-      } catch (_) {}
-    }
-    window.ML.setData(value || {});
-  }
-
   async function handleSession(session) {
+    const version = ++sessionVersion;
     if (!session?.user) {
       currentUser = null; currentProfile = null;
+      clearTimeout(saveTimer);
       showApp(false);
       return;
     }
-    currentUser = session.user;
+    const user = session.user;
+    currentUser = user;
     showError("");
+    showApp(false);
     const { data: profile, error } = await client.from("profiles")
-      .select("id,email,role,is_active").eq("id", currentUser.id).maybeSingle();
+      .select("id,email,role,is_active").eq("id", user.id).maybeSingle();
+    if (version !== sessionVersion) return;
     if (error) { showError("Не удалось проверить профиль: " + error.message); await client.auth.signOut(); return; }
     if (!profile || !profile.is_active) {
       showError("Доступ к MuscleLog отключён. Обратитесь к администратору.");
       await client.auth.signOut(); return;
     }
+    const { data, error: dataError } = await client.from("user_data")
+      .select("data").eq("user_id", user.id).maybeSingle();
+    if (version !== sessionVersion) return;
+    if (dataError) { showError("Не удалось загрузить ваши данные: " + dataError.message); return; }
     currentProfile = profile;
-    await loadUserData(currentUser, profile);
+    window.ML.setData(data?.data || {});
     showApp(true);
     const adminTab = el("adminTab");
     if (adminTab) adminTab.classList.toggle("adminOnly", profile.role !== "admin");
@@ -137,22 +130,32 @@
       window.ML.go("admin"); refreshUsers();
       document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
     });
-    client.auth.onAuthStateChange((_event, session) => {
-      handleSession(session).catch(e => showError("Ошибка загрузки профиля: " + e.message));
+    client.auth.onAuthStateChange((event, session) => {
+      if ((event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && currentUser?.id === session?.user?.id) return;
+      // Defer Supabase requests until after the auth callback returns.
+      setTimeout(() => handleSession(session).catch(e => showError("Ошибка загрузки профиля: " + e.message)), 0);
     });
-    client.auth.getSession().then(({ data }) => handleSession(data.session))
-      .catch(e => showError("Не удалось проверить сессию: " + e.message));
   }
 
   function save(data) {
-    if (!currentUser) return;
+    if (!currentUser || !currentProfile?.is_active) return;
     clearTimeout(saveTimer);
     const userId = currentUser.id;
-    saveTimer = setTimeout(async () => {
-      const { error } = await client.from("user_data").upsert({
-        user_id: userId, data, updated_at: new Date().toISOString()
+    const snapshot = JSON.parse(JSON.stringify(data));
+    saveTimer = setTimeout(() => {
+      saveQueue = saveQueue.then(async () => {
+        if (currentUser?.id !== userId) return;
+        const { error } = await client.from("user_data").upsert({
+          user_id: userId, data: snapshot, updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
+        if (error) {
+          console.error("MuscleLog cloud save failed:", error.message);
+          window.ML?.notify?.("Не удалось сохранить данные. Проверьте соединение.");
+        }
+      }).catch(error => {
+        console.error("MuscleLog cloud save failed:", error.message);
+        window.ML?.notify?.("Не удалось сохранить данные. Проверьте соединение.");
       });
-      if (error) console.error("MuscleLog cloud save failed:", error.message);
     }, 500);
   }
 
