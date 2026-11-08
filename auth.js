@@ -35,7 +35,12 @@
     if (version !== sessionVersion) return;
     if (dataError) { showError("Не удалось загрузить ваши данные: " + dataError.message); return; }
     currentProfile = profile;
-    window.ML.setData(data?.data || {});
+    const savedData = data?.data || {};
+    window.ML.setData(savedData);
+    const needsDefaults = !savedData.profile || !("age" in savedData.profile) ||
+      !("height" in savedData.profile) || !("sex" in savedData.profile) ||
+      !savedData.goals || !("kcal" in savedData.goals) || !Array.isArray(savedData.plan);
+    if (needsDefaults) save(window.ML.getData());
     showApp(true);
     const adminTab = el("adminTab");
     if (adminTab) adminTab.classList.toggle("adminOnly", profile.role !== "admin");
