@@ -40,16 +40,23 @@ for each row execute procedure public.handle_new_user();
 alter table public.profiles enable row level security;
 alter table public.user_data enable row level security;
 
+create or replace function public.is_active_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid()) and role = 'admin' and is_active = true
+  );
+$;
+
 drop policy if exists "Read own profile or admin" on public.profiles;
 create policy "Read own profile or admin" on public.profiles
 for select to authenticated
-using (
-  id = (select auth.uid())
-  or exists (
-    select 1 from public.profiles p
-    where p.id = (select auth.uid()) and p.role = 'admin' and p.is_active = true
-  )
-);
+using (id = (select auth.uid()) or (select public.is_active_admin()));
 
 drop policy if exists "Read own app data when active" on public.user_data;
 create policy "Read own app data when active" on public.user_data
