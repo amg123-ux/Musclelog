@@ -1,0 +1,12 @@
+{
+  "name": "MuscleLog — фитнес-дневник",
+  "short_name": "MuscleLog",
+  "description": "Тренировки, питание и прогресс для набора мышечной массы",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101317",
+  "theme_color": "#101317",
+  "lang": "ru",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
