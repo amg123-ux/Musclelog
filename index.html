@@ -5,6 +5,7 @@
 <link rel="manifest" href="./manifest.json"><link rel="icon" href="./icon.svg"><link rel="apple-touch-icon" href="./icon.svg">
 <title>MuscleLog</title>
 <style>
+body.locked main,body.locked nav{display:none!important}#authGate{display:none;max-width:440px;margin:9vh auto 30px}.locked #authGate{display:block}.authLogo{font-size:28px;font-weight:900;text-align:center;margin:28px 0}.authError{color:#ff8c8c;min-height:20px;font-size:13px}.adminOnly{display:none!important}
 :root{--bg:#101317;--card:#1a2026;--line:#303a43;--txt:#f4f7f8;--muted:#9ba8b3;--mint:#69e0bd}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px -apple-system,BlinkMacSystemFont,sans-serif;padding:0 15px 90px}.app{max-width:700px;margin:auto}
 header{display:flex;align-items:center;gap:12px;padding:20px 0}.logo{width:40px;height:40px;border-radius:13px;background:var(--mint);color:#10201c;display:grid;place-items:center;font-weight:900;font-size:22px}.brand{font-size:20px;font-weight:800}.mint{color:var(--mint)}.date,.muted,small{color:var(--muted)}
@@ -21,6 +22,23 @@ nav{position:fixed;bottom:0;left:0;right:0;background:#12171df2;border-top:1px s
 @media(min-width:560px){.grid{grid-template-columns:repeat(4,1fr)}}
 </style></head><body><div class="app">
 <header><div class="logo">M</div><div class="brand">Muscle<span class="mint">Log</span><div class="date" id="today"></div></div></header>
+<section id="authGate">
+  <div class="authLogo">Muscle<span class="mint">Log</span></div>
+  <div class="card">
+    <h2 id="authTitle">Вход в MuscleLog</h2>
+    <p class="muted" id="authHint">Доступ предоставляется администратором.</p>
+    <form id="loginForm">
+      <div class="field"><label>Электронная почта</label><input id="authEmail" type="email" autocomplete="username" required placeholder="name@example.com"></div>
+      <div class="field"><label>Пароль</label><input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="Не менее 8 символов"></div>
+      <button class="btn full" id="authSubmit">Войти</button>
+    </form>
+    <form id="passwordForm" style="display:none">
+      <div class="field"><label>Новый пароль</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+      <button class="btn full">Сохранить пароль</button>
+    </form>
+    <div class="authError" id="authError"></div>
+  </div>
+</section>
 <main>
 <section id="home" class="screen active"><h1>Готов к прогрессу?</h1><div class="muted">Твоя система тренировок и питания</div>
 <div class="hero"><small class="mint">НАБОР МЫШЕЧНОЙ МАССЫ</small><div class="big" id="cal">0 / 2950 <small>ккал</small></div><div class="bar"><i id="calbar"></i></div><div class="macros"><div class="macro"><b id="pval">0 / 140 г</b><small>БЕЛКИ</small></div><div class="macro"><b id="fval">0 / 75 г</b><small>ЖИРЫ</small></div><div class="macro"><b id="cval">0 / 429 г</b><small>УГЛЕВОДЫ</small></div></div></div>
@@ -37,8 +55,13 @@ nav{position:fixed;bottom:0;left:0;right:0;background:#12171df2;border-top:1px s
 <section id="progress" class="screen"><h1>Прогресс</h1><div class="muted">Изменения веса и тренировочного объёма</div><div class="card"><h2>Добавить замер</h2><form id="mf"><div class="two"><div class="field"><label>Вес, кг</label><input id="mweight" type="number" step=".1" required></div><div class="field"><label>Талия, см</label><input id="waist" type="number" step=".1"></div></div><div class="field"><label>Дата</label><input id="mdate" type="date" required></div><button class="btn full">Сохранить замер</button></form></div><div class="card"><h2>История веса</h2><div id="mhistory"></div></div><div class="card"><h2>Общий тренировочный объём</h2><div class="big" id="volume">0 кг</div><small>Сумма подходы × повторения × вес</small></div></section>
 
 <section id="settings" class="screen"><h1>Профиль и цели</h1><div class="card"><h2>Параметры</h2><div class="two"><div class="field"><label>Возраст</label><input value="20 лет" disabled></div><div class="field"><label>Рост</label><input value="183 см" disabled></div><div class="field"><label>Пол</label><input value="Мужской" disabled></div><div class="field"><label>Вес, кг</label><input id="setweight" type="number" step=".1"></div></div></div><div class="card"><h2>Дневные цели</h2><div class="two"><div class="field"><label>Калории</label><input id="gk" type="number"></div><div class="field"><label>Белки, г</label><input id="gp" type="number"></div><div class="field"><label>Жиры, г</label><input id="gf" type="number"></div><div class="field"><label>Углеводы, г</label><input id="gc" type="number"></div></div><button class="btn full" id="saveGoals">Сохранить цели</button></div><div class="card"><h2>Резервная копия</h2><p class="muted">Записи хранятся в браузере на этом устройстве. Экспортируй копию, чтобы не потерять данные.</p><div class="actions"><button class="btn secondary" id="export">Экспорт JSON</button><button class="btn secondary" id="import">Импорт JSON</button></div><input id="file" type="file" accept="application/json" hidden><button class="btn secondary full" id="clear">Удалить все записи</button></div><small>MuscleLog · Версия 1.0</small></section>
+</section>
+<section id="admin" class="screen"><h1>Администрирование</h1><div class="muted">Управление доступом к MuscleLog</div>
+<div class="card"><h2>Добавить пользователя</h2><p class="muted">На указанную почту будет отправлено приглашение для создания пароля.</p><form id="inviteForm"><div class="field"><label>Электронная почта</label><input id="inviteEmail" type="email" required placeholder="user@example.com"></div><button class="btn full">Отправить приглашение</button></form></div>
+<div class="card"><div class="row"><h2>Пользователи</h2><button class="btn secondary" id="refreshUsers">Обновить</button></div><div id="userList"><div class="empty">Загрузка...</div></div></div>
+</section>
 </main></div>
-<nav><div><button class="on" data-tab="home"><b>⌂</b>Главная</button><button data-tab="workout"><b>⚒</b>Зал</button><button data-tab="food"><b>＋</b>Питание</button><button data-tab="progress"><b>↗</b>Прогресс</button><button data-tab="settings"><b>⚙</b>Профиль</button></div></nav><div class="toast" id="toast"></div>
+<nav><div><button class="on" data-tab="home"><b>⌂</b>Главная</button><button data-tab="workout"><b>⚒</b>Зал</button><button data-tab="food"><b>＋</b>Питание</button><button data-tab="progress"><b>↗</b>Прогресс</button><button data-tab="settings"><b>⚙</b>Профиль</button><button id="adminTab" class="adminOnly" data-tab="admin"><b>♙</b>Админ</button></div></nav><div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id), today=new Date().toISOString().slice(0,10);
 const base={profile:{weight:69.5},goals:{kcal:2950,p:140,f:75,c:429},foods:[],workouts:[],measures:[]};
@@ -46,7 +69,7 @@ let db;try{db=Object.assign({},base,JSON.parse(localStorage.getItem('musclelog')
 const plans=[[['Жим штанги лёжа','3 × 6–10'],['Тяга верхнего блока','3 × 8–12'],['Жим гантелей на наклонной','3 × 8–12'],['Горизонтальная тяга','3 × 8–12'],['Разведения в стороны','3 × 12–15'],['Разгибание рук на блоке','2 × 10–15']],[['Приседания / жим ногами','3 × 6–10'],['Румынская тяга','3 × 8–12'],['Сгибание ног','3 × 10–15'],['Разгибание ног','2 × 10–15'],['Подъёмы на носки','3 × 10–15'],['Скручивания','2 × 12–20']],[['Жим гантелей сидя','3 × 8–12'],['Подтягивания / верхний блок','3 × 8–12'],['Жим в тренажёре','3 × 8–12'],['Тяга гантели одной рукой','3 × 8–12'],['Разведения в тренажёре','2 × 12–15'],['Сгибание рук','3 × 10–15']],[['Жим ногами','3 × 8–12'],['Ягодичный мост','3 × 8–12'],['Болгарские выпады','2 × 8–12'],['Сгибание ног сидя','3 × 10–15'],['Подъёмы на носки сидя','3 × 12–20'],['Планка','2 × 30–60 сек']]];
 function fmt(n){return (Number(n)||0).toLocaleString('ru-RU',{maximumFractionDigits:1})}
 function note(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',1800)}
-function save(){localStorage.setItem('musclelog',JSON.stringify(db));render()}
+function save(){localStorage.setItem('musclelog',JSON.stringify(db));render();if(window.MuscleAuth)window.MuscleAuth.save(db)}
 function go(id){document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x.dataset.tab===id));render();scrollTo(0,0)}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 let day=0;function plan(){ $('plan').innerHTML=plans[day].map(x=>'<div class="item row"><div><b>'+x[0]+'</b><p>'+x[1]+' повторений</p></div><button class="btn secondary" onclick="quick(\''+x[0].replace(/'/g,"\\'")+'\')">Записать</button></div>').join('')}
@@ -69,6 +92,7 @@ $('volume').textContent=fmt(db.workouts.reduce((s,x)=>s+x.sets*x.reps*x.weight,0
 $('export').onclick=()=>{let a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.href=u;a.download='musclelog-backup.json';a.click();URL.revokeObjectURL(u)};
 $('import').onclick=()=>$('file').click();$('file').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);save();note('Копия восстановлена')}catch(x){note('Ошибка файла')}};r.readAsText(f)};
 $('clear').onclick=()=>{if(confirm('Удалить все записи?')){db={profile:{weight:69.5},goals:{kcal:2950,p:140,f:75,c:429},foods:[],workouts:[],measures:[]};save()}};
-$('today').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});render();
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-</script></body></html>
+$('today').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});window.ML={setData(data){db=Object.assign({},base,data||{});db.profile=Object.assign({},base.profile,db.profile);db.goals=Object.assign({},base.goals,db.goals);render()},getData(){return db},render,go};render();
+<script src="./auth.js"></script>
+<script>window.MuscleAuth && window.MuscleAuth.init();</script>
+<script>if("serviceWorker"in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script></body></html>
