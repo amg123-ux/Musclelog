@@ -12,8 +12,15 @@
 
   async function publishProgress(userId, snapshot, version = sessionVersion) {
     const progress = {
-      workouts: Array.isArray(snapshot.workouts) ? snapshot.workouts : [],
-      measures: Array.isArray(snapshot.measures) ? snapshot.measures : []
+      workouts: (Array.isArray(snapshot.workouts) ? snapshot.workouts : [])
+        .filter(item => item && typeof item === "object")
+        .map(item => ({
+          date: String(item.date || ""), name: String(item.name || ""),
+          sets: Number(item.sets) || 0, reps: Number(item.reps) || 0, weight: Number(item.weight) || 0
+        })),
+      measures: (Array.isArray(snapshot.measures) ? snapshot.measures : [])
+        .filter(item => item && typeof item === "object")
+        .map(item => ({ date: String(item.date || ""), weight: Number(item.weight) || 0 }))
     };
     const { error: writeError } = await client.from("shared_progress").upsert({
       user_id: userId, progress, updated_at: new Date().toISOString()
