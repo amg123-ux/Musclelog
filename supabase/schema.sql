@@ -46,12 +46,12 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $admin$
   select exists (
     select 1 from public.profiles
     where id = (select auth.uid()) and role = 'admin' and is_active = true
   );
-$;
+$admin$;
 
 drop policy if exists "Read own profile or admin" on public.profiles;
 create policy "Read own profile or admin" on public.profiles
